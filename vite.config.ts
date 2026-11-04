@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import preact from '@preact/preset-vite'
+import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // Zwei Build-Modi:
@@ -8,13 +8,15 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => {
   const isStatic = mode === 'static'
   return {
-    plugins: [preact(), tailwindcss()],
+    plugins: [react(), tailwindcss()],
     base: isStatic ? './' : '/',
     build: {
       outDir: isStatic ? 'dist-static' : 'dist/client',
       emptyOutDir: true,
     },
     server: {
+      host: '0.0.0.0',
+      port: 5173,
       proxy: { '/api': 'http://localhost:3000' },
     },
   }

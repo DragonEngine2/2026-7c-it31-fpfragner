@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
-/* Eigene Farben: ändere sie hier einmal, dann gelten sie überall (Tailwind: bg-brand, text-brand ...) */
+/* Cinema & Streaming Farben (Tailwind: bg-brand, text-brand ...) */
 @theme {
-  --color-brand: #005a9c;
-  --color-brand-dark: #003366;
+  --color-brand: #e50914;
+  --color-brand-dark: #b81d24;
 }

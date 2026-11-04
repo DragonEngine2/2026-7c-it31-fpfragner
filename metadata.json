@@ -1,0 +1,7 @@
+{
+  "name": "FrameStream – Animation & Live-Action",
+  "description": "Video-Streaming-Plattform spezialisiert auf Stop-Motion, Blender-3D-Animationen und Live-Action-Kurzfilme",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

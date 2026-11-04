@@ -1,6 +1,6 @@
-# Fullstack-App – Template (BRG Kepler Graz, 7. Klasse)
+# Fullstack-App – React (BRG Kepler Graz, 7. Klasse)
 
-Ein Repository für das ganze Modul **IT-31 Fullstack-App**. Du erweiterst es Aufgabe für Aufgabe.
+Ein Repository für das Modul **IT-31 Fullstack-App**, umgeschrieben auf **React**.
 
 ## Schnellstart
 
@@ -9,26 +9,22 @@ npm install
 npm run dev
 ```
 
-* Frontend: <http://localhost:5173> (Vite, Hot Reload)
-* Backend: <http://localhost:3000/api/items> (Hono)
+* Die App und die API laufen unter <http://localhost:3000> (Vite + Hono API Middleware).
 
 ## Aufbau
 
-* `src/client/` – Oberfläche (Preact + Tailwind). `api.ts` ist die einzige Stelle, die mit dem Backend spricht.
-* `src/server/` – API (Hono). `store.ts` ist die Daten-Schnittstelle, `db/schema.ts` das Datenbank-Schema.
-* `src/shared/schemas.ts` – Zod-Schemas und Typen für Frontend **und** Backend.
+* `src/client/` – Oberfläche (React 19 + Tailwind CSS). `api.ts` ist die Schnittstelle für Datenzugriff.
+* `src/server/` – API (Hono). `store.ts` ist die Daten-Schnittstelle, `db/schema.ts` das Datenbankschema.
+* `src/shared/schemas.ts` – Zod-Schemas und TypeScript-Typen für Frontend und Backend.
 * `data/seed.json` – Demodaten.
-* `drizzle/` – SQL-Migrationen (werden aus dem Schema erzeugt).
-* `snippets/` – Referenzlösungen zu jeder Aufgabe (erst selbst versuchen!).
-* `AGENTS.md` – Regeln für KI-Agenten (Antigravity, Cline, Jules, AI Studio).
+* `drizzle/` – SQL-Migrationen.
+* `snippets/` – Referenzlösungen zu den Aufgaben.
+* `AGENTS.md` – Regeln für KI-Agenten.
 
 ## Befehle
 
-* `npm run dev` – Entwicklung · `npm test` – Tests · `npm run typecheck` – TypeScript prüfen
-* `npm run build` – Build für den Container · `npm run build:static` – Build ohne Backend (einbettbar)
-* `npm run db:generate` – Migration aus einer Schema-Änderung erzeugen
-
-## Aufgaben
-
-Die Aufgabenstellungen (inkl. Links, Anleitungen für VS Code, Antigravity und Google AI Studio) findest du in Microsoft Teams.
-Die `TODO Aufgabe N`-Kommentare im Code zeigen dir, wo du arbeitest.
+* `npm run dev` – Entwicklungsserver auf Port 3000
+* `npm test` – Vitest-Tests ausführen
+* `npm run typecheck` – TypeScript prüfen
+* `npm run build` – Produktiver Build (dist/client)
+* `npm run build:static` – Statischer Build ohne Backend (localStorage)
