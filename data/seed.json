@@ -46,5 +46,29 @@
     "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4 | Puppen-Stop-Motion mit mechanischen Gelenkfiguren und stimmungsvoller Kinobeleuchtung.",
     "done": false,
     "createdAt": "2026-10-19T08:25:00.000Z"
+  },
+  {
+    "id": 7,
+    "title": "Cosmos Laundromat",
+    "category": "Blender Animation",
+    "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4 | Blender Open-Movie: Ein suizidales Schaf trifft auf einer verlassenen Insel einen seltsamen Waschsalonbesitzer.",
+    "done": false,
+    "createdAt": "2026-10-19T08:30:00.000Z"
+  },
+  {
+    "id": 8,
+    "title": "Clay Wars: Die Schlacht am Küchentisch",
+    "category": "Stop-Motion",
+    "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4 | Aufwendige Knetanimation mit über 1.200 handfotografierten Einzelbildern zwischen Kaffeetassen und Besteck.",
+    "done": true,
+    "createdAt": "2026-10-19T08:35:00.000Z"
+  },
+  {
+    "id": 9,
+    "title": "Cyber District: Neon Chase",
+    "category": "Live-Action",
+    "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4 | Atmosphärischer Realfilm mit Live-Action-Stunts und dynamisch eingefügten holografischen Blender-Visual-Effects.",
+    "done": false,
+    "createdAt": "2026-10-19T08:40:00.000Z"
   }
 ]
