@@ -10,16 +10,30 @@ export function createApp(store: Store) {
 
   app.get('/api/items', async (c) => c.json(await store.list()))
 
-  // TODO Aufgabe 2: POST /api/items   -> Eintrag anlegen (Zod-Validierung, Status 201)
-  // TODO Aufgabe 2: PATCH /api/items/:id  -> Eintrag ändern
-  // TODO Aufgabe 2: DELETE /api/items/:id -> Eintrag löschen
-  // Fertige Lösung zum Vergleichen: snippets/02-routes.ts
-  app.post('/api/items', (c) => c.json({ error: 'Noch nicht implementiert' }, 501))
-  app.patch('/api/items/:id', (c) => c.json({ error: 'Noch nicht implementiert' }, 501))
-  app.delete('/api/items/:id', (c) => c.json({ error: 'Noch nicht implementiert' }, 501))
+  app.post('/api/items', async (c) => {
+    const parsed = itemInput.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) {
+      return c.json({ error: 'Ungültige Eingabe', details: parsed.error.issues }, 400)
+    }
+    const item = await store.create(parsed.data)
+    return c.json(item, 201)
+  })
 
-  void itemInput
-  void itemPatch
+  app.patch('/api/items/:id', async (c) => {
+    const id = Number(c.req.param('id'))
+    const parsed = itemPatch.safeParse(await c.req.json().catch(() => null))
+    if (!Number.isInteger(id) || !parsed.success) {
+      return c.json({ error: 'Ungültige Eingabe' }, 400)
+    }
+    const item = await store.update(id, parsed.data)
+    return item ? c.json(item) : c.json({ error: 'Nicht gefunden' }, 404)
+  })
+
+  app.delete('/api/items/:id', async (c) => {
+    const id = Number(c.req.param('id'))
+    const removed = await store.remove(id)
+    return removed ? c.body(null, 204) : c.json({ error: 'Nicht gefunden' }, 404)
+  })
 
   return app
 }

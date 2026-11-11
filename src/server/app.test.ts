@@ -22,6 +22,44 @@ describe('API', () => {
     expect(body).toHaveLength(1)
   })
 
-  // TODO Aufgabe 5: Schreibe Tests für POST (201 + 400 bei leerem Titel), PATCH und DELETE.
-  // Vorlage: snippets/05-api.test.ts
+  it('POST legt einen Eintrag an (201)', async () => {
+    const res = await app().request('/api/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Neu' }),
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { id: number; title: string }
+    expect(body.title).toBe('Neu')
+  })
+
+  it('POST mit leerem Titel liefert 400', async () => {
+    const res = await app().request('/api/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('PATCH aktualisiert einen Eintrag', async () => {
+    const res = await app().request('/api/items/1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ done: true }),
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { id: number; done: boolean }
+    expect(body.done).toBe(true)
+  })
+
+  it('DELETE eines unbekannten Eintrags liefert 404', async () => {
+    const res = await app().request('/api/items/999', { method: 'DELETE' })
+    expect(res.status).toBe(404)
+  })
+
+  it('DELETE eines vorhandenen Eintrags liefert 204', async () => {
+    const res = await app().request('/api/items/1', { method: 'DELETE' })
+    expect(res.status).toBe(204)
+  })
 })
