@@ -70,5 +70,29 @@
     "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4 | Atmosphärischer Realfilm mit Live-Action-Stunts und dynamisch eingefügten holografischen Blender-Visual-Effects.",
     "done": false,
     "createdAt": "2026-10-19T08:40:00.000Z"
+  },
+  {
+    "id": 10,
+    "title": "Spring – Ein Wald erwacht",
+    "category": "Blender Animation",
+    "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4 | Poetische Blender Open-Movie-Geschichte über eine Frühlingshirtin und ihren treuen Hund.",
+    "done": true,
+    "createdAt": "2026-10-19T08:45:00.000Z"
+  },
+  {
+    "id": 11,
+    "title": "Rusty Wheels: Miniatur-Rennen",
+    "category": "Stop-Motion",
+    "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4 | Rasantes Stop-Motion-Rennen mit winzigen Modellautos über selbstgebaute Pappschikanen.",
+    "done": false,
+    "createdAt": "2026-10-19T08:50:00.000Z"
+  },
+  {
+    "id": 12,
+    "title": "Subway Chronicles",
+    "category": "Live-Action",
+    "note": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4 | Spannender U-Bahn-Thriller mit realen Filmaufnahmen und futuristischen Spezialeffekten.",
+    "done": false,
+    "createdAt": "2026-10-19T08:55:00.000Z"
   }
 ]
