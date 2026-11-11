@@ -2,6 +2,8 @@
 
 /* Cinema & Streaming Farben (Tailwind: bg-brand, text-brand ...) */
 @theme {
+  --color-brand: #7c3aed;
+  --color-brand-dark: #5b21b6;
   --color-brand: #e50914;
   --color-brand-dark: #b81d24;
 }
