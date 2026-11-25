@@ -16,6 +16,15 @@ export const itemPatch = z.object({
   done: z.boolean().optional(),
 })
 
+export const itemRecord = z.object({
+  id: z.number().int().positive(),
+  title: z.string().min(1).max(80),
+  category: z.string().min(1).max(40),
+  note: z.string().max(500),
+  done: z.boolean(),
+  createdAt: z.string().min(1),
+})
+
 export type ItemInput = z.infer<typeof itemInput>
 export type ItemPatch = z.infer<typeof itemPatch>
 

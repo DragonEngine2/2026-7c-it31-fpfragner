@@ -3,10 +3,10 @@ import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import type { Item } from '../shared/schemas'
 import { createApp } from './app'
-import { createMemoryStore } from './store'
+import { createJsonStore } from './store'
 
 const seed = JSON.parse(readFileSync('data/seed.json', 'utf-8')) as Item[]
-const store = createMemoryStore(seed) // Aufgabe 4: durch SqliteStore ersetzen
+const store = createJsonStore(seed)
 
 const app = createApp(store)
 

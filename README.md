@@ -21,6 +21,12 @@ npm run dev
 * `snippets/` – Referenzlösungen zu den Aufgaben.
 * `AGENTS.md` – Regeln für KI-Agenten.
 
+## Videos
+
+Das Formular unterstützt YouTube-Links, direkte Video-URLs und MP4-Uploads. Die API nimmt Uploads als `multipart/form-data` im Feld `file` unter `POST /api/upload` entgegen. Unterstützt werden MP4, WebM, MOV und OGG; gespeicherte Dateien liegen in `uploads/` und sind über `/api/uploads/<filename>` erreichbar. Der Upload-Ordner wird nicht von Git erfasst.
+
+Katalogeinträge werden in `data/items.json` gespeichert und bleiben nach einem Serverneustart erhalten. Die lokale Daten-Datei wird nicht von Git erfasst; `data/seed.json` dient als Ausgangsbestand, wenn noch keine lokale Datei existiert.
+
 ## Befehle
 
 * `npm run dev` – Entwicklungsserver auf Port 3000
