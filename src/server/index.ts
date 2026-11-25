@@ -1,14 +1,14 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
-import type { Item } from '../shared/schemas'
 import { createApp } from './app'
-import { createJsonStore } from './store'
+import { createDatabase } from './db'
+import { createSqliteStore } from './store.sqlite'
 
-const seed = JSON.parse(readFileSync('data/seed.json', 'utf-8')) as Item[]
-const store = createJsonStore(seed)
+const db = await createDatabase()
+const store = createSqliteStore(db)
 
-const app = createApp(store)
+const app = createApp(store, store)
 
 // Im Entwicklungsmodus nicht-API Anfragen an Vite (5173) weiterleiten
 app.all('*', async (c, next) => {

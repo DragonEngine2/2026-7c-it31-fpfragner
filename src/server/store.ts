@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { z } from 'zod'
-import type { Item, ItemInput, ItemPatch } from '../shared/schemas'
+import type { Item, ItemInput, ItemPatch, User } from '../shared/schemas'
 import { itemRecord } from '../shared/schemas'
 
 // Eine "Store"-Schnittstelle: Die API weiß nicht, WO die Daten liegen.
@@ -14,6 +14,41 @@ export interface Store {
   create(input: ItemInput): Promise<Item>
   update(id: number, patch: ItemPatch): Promise<Item | undefined>
   remove(id: number): Promise<boolean>
+}
+
+export interface StoredUser extends User {
+  passwordHash: string
+  createdAt: string
+}
+
+export interface UserStore {
+  findUserByUsername(username: string): Promise<StoredUser | undefined>
+  findUserById(id: number): Promise<StoredUser | undefined>
+  createUser(username: string, passwordHash: string): Promise<StoredUser>
+}
+
+export function createMemoryUserStore(): UserStore {
+  const users: StoredUser[] = []
+  let nextId = 1
+
+  return {
+    async findUserByUsername(username) {
+      return users.find((user) => user.username === username)
+    },
+    async findUserById(id) {
+      return users.find((user) => user.id === id)
+    },
+    async createUser(username, passwordHash) {
+      const user: StoredUser = {
+        id: nextId++,
+        username,
+        passwordHash,
+        createdAt: new Date().toISOString(),
+      }
+      users.push(user)
+      return user
+    },
+  }
 }
 
 export function createMemoryStore(seed: Item[] = []): Store {
@@ -28,6 +63,9 @@ export function createMemoryStore(seed: Item[] = []): Store {
       const item: Item = {
         id: nextId++,
         ...input,
+        category: input.category ?? 'Allgemein',
+        note: input.note ?? '',
+        rating: input.rating ?? 3,
         done: false,
         createdAt: new Date().toISOString(),
       }
@@ -114,6 +152,9 @@ export function createJsonStore(
         const item: Item = {
           id: nextId,
           ...input,
+          category: input.category ?? 'Allgemein',
+          note: input.note ?? '',
+          rating: input.rating ?? 3,
           done: false,
           createdAt: new Date().toISOString(),
         }

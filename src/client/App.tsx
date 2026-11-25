@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import type { Item } from '../shared/schemas'
+import type { Item, User } from '../shared/schemas'
 import { api } from './api'
 
 // Standard-Videomaterial für Blender, Stop-Motion und Live-Action als Fallbacks
@@ -122,6 +122,11 @@ function getCategoryBadge(category: string) {
 }
 
 export function App() {
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [items, setItems] = useState<Item[]>([])
   const [activeItem, setActiveItem] = useState<Item | null>(null)
   const [title, setTitle] = useState('')
@@ -153,8 +158,42 @@ export function App() {
   }
 
   useEffect(() => {
-    reload()
+    api.me()
+      .then(async (currentUser) => {
+        setUser(currentUser)
+        if (currentUser) await reload()
+      })
+      .catch((e: unknown) => setError((e as Error).message))
+      .finally(() => setAuthLoading(false))
   }, [])
+
+  async function handleAuthentication(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    try {
+      const authenticatedUser =
+        authMode === 'register'
+          ? await api.register(username, password)
+          : await api.login(username, password)
+      setUser(authenticatedUser)
+      setPassword('')
+      await reload()
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await api.logout()
+      setUser(null)
+      setItems([])
+      setActiveItem(null)
+      setIsTheaterOpen(false)
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
 
   // Lädt eine Video-Datei auf den Server und setzt die zurückgegebene URL
   async function handleFileUpload(file: File | undefined) {
@@ -162,20 +201,7 @@ export function App() {
     setIsUploading(true)
     setError('')
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => null)
-        throw new Error(errBody?.error || `Upload-Fehler ${res.status}`)
-      }
-
-      const data = (await res.json()) as { url: string; filename?: string }
+      const data = await api.upload(file)
       setVideoUrlInput(data.url)
       setUploadedFileName(file.name)
       const generatedTitle =
@@ -299,6 +325,71 @@ export function App() {
   const youtubeId = currentVideoData ? extractYouTubeId(currentVideoData.videoUrl) : null
   const ytEmbedUrl = youtubeId ? getYouTubeEmbedUrl(youtubeId) : null
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        Anmeldung wird geprüft …
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+        <form onSubmit={handleAuthentication} className="w-full max-w-md space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+          <div className="text-center">
+            <div className="text-4xl">📽️</div>
+            <h1 className="mt-3 text-2xl font-black text-white">
+              Frame<span className="text-brand">Stream</span>
+            </h1>
+            <p className="mt-2 text-sm text-slate-400">
+              {authMode === 'login' ? 'Melde dich an, um fortzufahren.' : 'Erstelle ein Konto für den Katalog.'}
+            </p>
+          </div>
+          {error && <p role="alert" className="rounded-lg border border-red-700 bg-red-950 p-3 text-sm text-red-200">{error}</p>}
+          <label className="block text-sm text-slate-300">
+            Benutzername
+            <input
+              autoComplete="username"
+              required
+              minLength={3}
+              maxLength={30}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+            />
+          </label>
+          <label className="block text-sm text-slate-300">
+            Passwort
+            <input
+              type="password"
+              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+              required
+              minLength={8}
+              maxLength={128}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+            />
+          </label>
+          <button type="submit" className="w-full rounded-lg bg-brand px-4 py-3 font-semibold text-white hover:bg-brand-dark">
+            {authMode === 'login' ? 'Anmelden' : 'Konto erstellen'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode(authMode === 'login' ? 'register' : 'login')
+              setError('')
+            }}
+            className="w-full text-sm text-slate-400 hover:text-white"
+          >
+            {authMode === 'login' ? 'Noch kein Konto? Registrieren' : 'Schon registriert? Anmelden'}
+          </button>
+        </form>
+      </main>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Header & Navigation */}
@@ -324,6 +415,13 @@ export function App() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-sm text-slate-300">{user.username}</span>
+            <button
+              onClick={() => void handleLogout()}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            >
+              Abmelden
+            </button>
             <button
               onClick={() => setIsAdding(!isAdding)}
               className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg bg-brand hover:bg-brand-dark text-white transition-all shadow-md shadow-brand/25 active:scale-95 cursor-pointer"
@@ -430,10 +528,10 @@ export function App() {
                   </div>
 
                   <label className="cursor-pointer rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3.5 py-2 text-xs font-semibold text-white transition">
-                    Select File
+                    Datei auswählen
                     <input
                       type="file"
-                      accept="video/mp4,.mp4"
+                      accept="video/mp4,video/webm,video/quicktime,video/ogg,.mp4,.webm,.mov,.ogg"
                       className="hidden"
                       disabled={isUploading}
                       onChange={(e) => {

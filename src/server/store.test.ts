@@ -15,6 +15,7 @@ describe('JSON-Store', () => {
       category: 'Allgemein',
       note: '',
       done: false,
+      rating: 3,
       createdAt: '2026-01-01T00:00:00.000Z',
     }
 
