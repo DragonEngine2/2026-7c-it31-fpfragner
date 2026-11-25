@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import type { Item } from '../shared/schemas'
+import type { Item, User } from '../shared/schemas'
 import { api } from './api'
 
 // Standard-Videomaterial für Blender, Stop-Motion und Live-Action als Fallbacks
@@ -14,7 +14,7 @@ const DEFAULT_VIDEOS: Record<string, { videoUrl: string; thumbnail: string; dura
     thumbnail: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
     duration: '12:14 Min.',
   },
-  'Sintel – The Dragon\'s Heart': {
+  "Sintel – The Dragon's Heart": {
     videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     thumbnail: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
     duration: '14:48 Min.',
@@ -36,17 +36,15 @@ const DEFAULT_VIDEOS: Record<string, { videoUrl: string; thumbnail: string; dura
   },
 }
 
-// Extrahiert URL und Beschreibung aus dem Notizfeld
+// Extrahiert URL (/api/uploads/... oder http(s)://...) und Beschreibung aus dem Notizfeld
 function parseNote(rawNote: string, title: string) {
   let videoUrl = ''
   let description = rawNote
 
-  if (rawNote.includes('http://') || rawNote.includes('https://')) {
-    const match = rawNote.match(/(https?:\/\/[^\s|]+)/)
-    if (match) {
-      videoUrl = match[1]
-      description = rawNote.replace(match[1], '').replace(/^[\s|]+|[\s|]+$/g, '').trim()
-    }
+  const match = rawNote.match(/(\/api\/uploads\/[^\s|]+|https?:\/\/[^\s|]+)/)
+  if (match) {
+    videoUrl = match[1]
+    description = rawNote.replace(match[1], '').replace(/^[\s|]+|[\s|]+$/g, '').trim()
   }
 
   // Fallback auf voreingestellte Videos
@@ -59,6 +57,44 @@ function parseNote(rawNote: string, title: string) {
   }
 
   return { videoUrl, description: description || 'Keine Beschreibung hinterlegt.' }
+}
+
+// Extrahiert die YouTube-Video-ID aus gängigen URL-Formaten
+function extractYouTubeId(rawUrl: string): string | null {
+  try {
+    const trimmed = rawUrl.trim()
+    const url = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    const host = url.hostname.replace(/^www\./, '').toLowerCase()
+
+    let id: string | null = null
+    if (host === 'youtu.be') {
+      id = url.pathname.split('/').filter(Boolean)[0] || null
+    } else {
+      if (
+        host === 'youtube.com' ||
+        host === 'm.youtube.com' ||
+        host === 'music.youtube.com' ||
+        host === 'youtube-nocookie.com'
+      ) {
+        if (url.pathname === '/watch') {
+          id = url.searchParams.get('v')
+        } else {
+          const parts = url.pathname.split('/').filter(Boolean)
+          if (parts[0] === 'embed' || parts[0] === 'shorts' || parts[0] === 'live' || parts[0] === 'v') {
+            id = parts[1] || null
+          }
+        }
+      }
+    }
+    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
+  } catch {
+    return null
+  }
+}
+
+function getYouTubeEmbedUrl(id: string): string {
+  return `https://www.youtube.com/embed/${encodeURIComponent(id)}?rel=0`
 }
 
 // Bestimmt die Kategorie-Farben
@@ -86,6 +122,11 @@ function getCategoryBadge(category: string) {
 }
 
 export function App() {
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [items, setItems] = useState<Item[]>([])
   const [activeItem, setActiveItem] = useState<Item | null>(null)
   const [title, setTitle] = useState('')
@@ -96,6 +137,10 @@ export function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('Alle')
   const [filterStatus, setFilterStatus] = useState<'all' | 'watchlist' | 'watched'>('all')
   const [isAdding, setIsAdding] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadedFileName, setUploadedFileName] = useState('')
+  const [uploadedItemId, setUploadedItemId] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [isTheaterOpen, setIsTheaterOpen] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -113,8 +158,75 @@ export function App() {
   }
 
   useEffect(() => {
-    reload()
+    api.me()
+      .then(async (currentUser) => {
+        setUser(currentUser)
+        if (currentUser) await reload()
+      })
+      .catch((e: unknown) => setError((e as Error).message))
+      .finally(() => setAuthLoading(false))
   }, [])
+
+  async function handleAuthentication(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    try {
+      const authenticatedUser =
+        authMode === 'register'
+          ? await api.register(username, password)
+          : await api.login(username, password)
+      setUser(authenticatedUser)
+      setPassword('')
+      await reload()
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await api.logout()
+      setUser(null)
+      setItems([])
+      setActiveItem(null)
+      setIsTheaterOpen(false)
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  // Lädt eine Video-Datei auf den Server und setzt die zurückgegebene URL
+  async function handleFileUpload(file: File | undefined) {
+    if (!file || isUploading) return
+    setIsUploading(true)
+    setError('')
+    try {
+      const data = await api.upload(file)
+      setVideoUrlInput(data.url)
+      setUploadedFileName(file.name)
+      const generatedTitle =
+        file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 80) || 'Neues Video'
+      const uploadTitle = title.trim() || generatedTitle
+      const uploadCategory = category.trim() || 'Blender Animation'
+      setTitle(uploadTitle)
+
+      const itemInput = {
+        title: uploadTitle,
+        category: uploadCategory,
+        note: `${data.url} | ${descriptionInput.trim() || 'Community-Upload'}`,
+      }
+      const savedItem = uploadedItemId
+        ? await api.update(uploadedItemId, itemInput)
+        : await api.create(itemInput)
+      setUploadedItemId(savedItem.id)
+      await reload()
+      setActiveItem(savedItem)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   // Startet Film im Kinoplayer
   function playVideo(item: Item) {
@@ -139,18 +251,23 @@ export function App() {
       : descriptionInput.trim() || 'Animation / Live-Action Film'
 
     try {
-      const created = await api.create({
+      const itemInput = {
         title: title.trim(),
         category: category.trim() || 'Blender Animation',
         note: combinedNote,
-      })
+      }
+      const saved = uploadedItemId
+        ? await api.update(uploadedItemId, itemInput)
+        : await api.create(itemInput)
       setTitle('')
       setVideoUrlInput('')
       setDescriptionInput('')
+      setUploadedFileName('')
+      setUploadedItemId(null)
       setIsAdding(false)
       setError('')
       await reload()
-      setActiveItem(created)
+      setActiveItem(saved)
       setIsTheaterOpen(true)
     } catch (err) {
       setError((err as Error).message)
@@ -205,20 +322,72 @@ export function App() {
     ? parseNote(activeItem.note, activeItem.title)
     : null
 
-  const isYouTube = (url: string) =>
-    url.includes('youtube.com') || url.includes('youtu.be')
+  const youtubeId = currentVideoData ? extractYouTubeId(currentVideoData.videoUrl) : null
+  const ytEmbedUrl = youtubeId ? getYouTubeEmbedUrl(youtubeId) : null
 
-  const getYouTubeEmbedUrl = (url: string) => {
-    try {
-      if (url.includes('youtu.be/')) {
-        const id = url.split('youtu.be/')[1].split('?')[0]
-        return `https://www.youtube.com/embed/${id}?autoplay=1`
-      }
-      const match = url.match(/[?&]v=([^&]+)/)
-      return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1` : url
-    } catch {
-      return url
-    }
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        Anmeldung wird geprüft …
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+        <form onSubmit={handleAuthentication} className="w-full max-w-md space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+          <div className="text-center">
+            <div className="text-4xl">📽️</div>
+            <h1 className="mt-3 text-2xl font-black text-white">
+              Frame<span className="text-brand">Stream</span>
+            </h1>
+            <p className="mt-2 text-sm text-slate-400">
+              {authMode === 'login' ? 'Melde dich an, um fortzufahren.' : 'Erstelle ein Konto für den Katalog.'}
+            </p>
+          </div>
+          {error && <p role="alert" className="rounded-lg border border-red-700 bg-red-950 p-3 text-sm text-red-200">{error}</p>}
+          <label className="block text-sm text-slate-300">
+            Benutzername
+            <input
+              autoComplete="username"
+              required
+              minLength={3}
+              maxLength={30}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+            />
+          </label>
+          <label className="block text-sm text-slate-300">
+            Passwort
+            <input
+              type="password"
+              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+              required
+              minLength={8}
+              maxLength={128}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+            />
+          </label>
+          <button type="submit" className="w-full rounded-lg bg-brand px-4 py-3 font-semibold text-white hover:bg-brand-dark">
+            {authMode === 'login' ? 'Anmelden' : 'Konto erstellen'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode(authMode === 'login' ? 'register' : 'login')
+              setError('')
+            }}
+            className="w-full text-sm text-slate-400 hover:text-white"
+          >
+            {authMode === 'login' ? 'Noch kein Konto? Registrieren' : 'Schon registriert? Anmelden'}
+          </button>
+        </form>
+      </main>
+    )
   }
 
   return (
@@ -246,6 +415,13 @@ export function App() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-sm text-slate-300">{user.username}</span>
+            <button
+              onClick={() => void handleLogout()}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            >
+              Abmelden
+            </button>
             <button
               onClick={() => setIsAdding(!isAdding)}
               className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg bg-brand hover:bg-brand-dark text-white transition-all shadow-md shadow-brand/25 active:scale-95 cursor-pointer"
@@ -280,7 +456,7 @@ export function App() {
                 <span>🎬</span> Neues Video in den Katalog aufnehmen
               </h2>
               <span className="text-xs text-slate-400">
-                Unterstützt MP4, WebM und YouTube
+                MP4-Upload, Direktlink oder YouTube
               </span>
             </div>
 
@@ -294,6 +470,7 @@ export function App() {
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand"
                     placeholder="z. B. Der Knetkrieger (Stop-Motion)"
                     value={title}
+                    maxLength={80}
                     onChange={(e) => setTitle(e.target.value)}
                     required
                   />
@@ -315,13 +492,65 @@ export function App() {
                 </div>
               </div>
 
+              {/* Drag & Drop + Datei auswählen */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Video-URL (MP4 Direktlink oder YouTube)
+                  MP4 auf Server hochladen (Drag & Drop oder Datei wählen)
+                </label>
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setIsDragging(true)
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setIsDragging(false)
+                    const file = e.dataTransfer?.files?.[0]
+                    void handleFileUpload(file)
+                  }}
+                  className={`flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border-2 border-dashed p-4 transition ${
+                    isDragging
+                      ? 'border-brand bg-brand/10'
+                      : 'border-slate-700 bg-slate-950/70 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="text-xs sm:text-sm text-slate-300">
+                    {isUploading ? (
+                      <span className="font-semibold text-amber-300">⏳ Lade Video auf den Server...</span>
+                    ) : uploadedFileName ? (
+                      <span className="font-semibold text-emerald-300">
+                        ✓ {uploadedItemId ? 'Im Katalog gespeichert' : 'Hochgeladen'}: {uploadedFileName}
+                      </span>
+                    ) : (
+                      <span>Ziehe eine <strong className="text-white">.mp4</strong>-Datei hierher oder wähle sie aus:</span>
+                    )}
+                  </div>
+
+                  <label className="cursor-pointer rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3.5 py-2 text-xs font-semibold text-white transition">
+                    Datei auswählen
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/ogg,.mp4,.webm,.mov,.ogg"
+                      className="hidden"
+                      disabled={isUploading}
+                      onChange={(e) => {
+                        const file = (e.currentTarget as HTMLInputElement).files?.[0]
+                        void handleFileUpload(file)
+                        e.currentTarget.value = ''
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Video-URL (wird beim Upload automatisch ausgefüllt – oder YouTube / MP4-Link einfügen)
                 </label>
                 <input
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand"
-                  placeholder="https://.../mein-video.mp4 oder https://youtu.be/..."
+                  placeholder="/api/uploads/... oder https://www.youtube.com/watch?v=... oder https://.../video.mp4"
                   value={videoUrlInput}
                   onChange={(e) => setVideoUrlInput(e.target.value)}
                 />
@@ -333,6 +562,7 @@ export function App() {
                 </label>
                 <textarea
                   rows={2}
+                  maxLength={500}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand"
                   placeholder="Handlung, verwendete Blender-Tools oder Stop-Motion Frame-Rate..."
                   value={descriptionInput}
@@ -379,7 +609,8 @@ export function App() {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 text-sm font-semibold rounded-lg bg-brand hover:bg-brand-dark text-white cursor-pointer"
+                    disabled={isUploading}
+                    className="px-5 py-2 text-sm font-semibold rounded-lg bg-brand hover:bg-brand-dark disabled:opacity-50 text-white cursor-pointer"
                   >
                     Video speichern
                   </button>
@@ -426,23 +657,26 @@ export function App() {
 
             {/* Video-Screen */}
             <div className={`relative bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 ${isTheaterOpen ? 'aspect-video w-full' : 'aspect-[21/9] w-full max-h-[380px]'}`}>
-              {isYouTube(currentVideoData.videoUrl) ? (
+              {ytEmbedUrl ? (
                 <iframe
-                  src={getYouTubeEmbedUrl(currentVideoData.videoUrl)}
+                  key={ytEmbedUrl}
+                  src={ytEmbedUrl}
                   title={activeItem.title}
                   className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
                 />
               ) : (
                 <video
                   ref={videoRef}
                   key={currentVideoData.videoUrl}
+                  src={currentVideoData.videoUrl}
                   controls
+                  playsInline
                   className="w-full h-full object-contain bg-black"
                   preload="metadata"
                 >
-                  <source src={currentVideoData.videoUrl} type="video/mp4" />
                   Dein Browser unterstützt das Video-Tag leider nicht.
                 </video>
               )}
@@ -457,6 +691,16 @@ export function App() {
                 <p className="mt-1 text-sm text-slate-400 leading-relaxed">
                   {currentVideoData.description}
                 </p>
+                {youtubeId && (
+                  <a
+                    href={`https://www.youtube.com/watch?v=${youtubeId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block text-xs text-brand hover:text-white underline underline-offset-2"
+                  >
+                    Auf YouTube öffnen
+                  </a>
+                )}
                 <div className="mt-2 text-xs text-slate-500">
                   Hinzugefügt am: {new Date(activeItem.createdAt).toLocaleDateString('de-DE')}
                 </div>

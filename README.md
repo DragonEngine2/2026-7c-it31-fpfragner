@@ -21,6 +21,12 @@ npm run dev
 * `snippets/` – Referenzlösungen zu den Aufgaben.
 * `AGENTS.md` – Regeln für KI-Agenten.
 
+## Videos
+
+Das Formular unterstützt YouTube-Links, direkte Video-URLs und MP4-Uploads. Die API nimmt Uploads als `multipart/form-data` im Feld `file` unter `POST /api/upload` entgegen. Unterstützt werden MP4, WebM, MOV und OGG; gespeicherte Dateien liegen in `uploads/` und sind über `/api/uploads/<filename>` erreichbar. Der Upload-Ordner wird nicht von Git erfasst.
+
+Katalogeinträge und Nutzerkonten werden mit Drizzle in `data/app.db` gespeichert und bleiben nach einem Serverneustart erhalten. Migrationen aus `drizzle/` werden beim Start automatisch angewendet. `data/app.db` wird nicht von Git erfasst. Für die Nutzung ist eine Registrierung oder Anmeldung erforderlich; die Passwörter werden gehasht gespeichert und die Sitzung über ein HttpOnly-Cookie verwaltet.
+
 ## Befehle
 
 * `npm run dev` – Entwicklungsserver auf Port 3000

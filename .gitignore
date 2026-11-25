@@ -3,6 +3,8 @@ dist/
 dist-static/
 data/*.db
 data/*.db-*
+data/items.json
+uploads/
 .env
 .env.*
 !.env.example
